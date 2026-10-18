@@ -165,7 +165,11 @@ rm ~/.dsh/sessions/--Users-...--/session-xxxx/.session-manager.json
 ## 安装 / 更新
 
 ```
-plugin_manager install_bundle  target=/绝对路径/dsh-session-manager
+# 从本地 checkout
+plugin_manager install_bundle  target=/绝对路径/Deepseek-Harness-Plugins/plugins/session-manager
+
+# 直接从 GitHub（pnpm git 子目录 spec）
+plugin_manager install_bundle  target=github:Seraph-x/Deepseek-Harness-Plugins#path:/plugins/session-manager
 ```
 
 改完代码：Host 半边要重新加载（`plugin_manager set_plugin`，target 用加载器条目 id `include:session-manager`，先关再开）；浏览器半边刷新页面即可（`dsh-client-hmr` 通常会自动重载）。
