@@ -1,0 +1,5 @@
+# Add-only: the patch replaces a matched row's config wholesale, so this bundle
+# only inserts its own row and never overrides shipped plugins.
+- insert:
+    - id: session-manager
+      name: 'dsh-session-manager'

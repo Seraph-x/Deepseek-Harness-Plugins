@@ -1,0 +1,10 @@
+{
+  "name": "deepseek-harness-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A collection of DeepSeek Harness (DSH) plugins.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

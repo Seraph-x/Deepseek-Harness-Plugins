@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session manager",
+    "description": "Session manager: delete sessions for real with a restorable trash, batch archive/delete, and a policy for sessions left behind when a workspace is deleted."
+  }
+}
