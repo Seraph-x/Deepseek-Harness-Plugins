@@ -6,20 +6,21 @@ A small monorepo of plugins for [DeepSeek Harness](https://github.com/deepseek-a
 
 | Package | What it does |
 | --- | --- |
-| [`dsh-session-manager`](plugins/session-manager) | Session management: delete a session for real (files, projection cache, workspace bookkeeping, live in-memory agent) with a restorable trash, batch archive/unarchive/delete, and a configurable policy for the sessions a workspace leaves behind when it is deleted. |
+| [`dsh-session-manager`](plugins/sessionManager) | Session management: delete a session for real (files, projection cache, workspace bookkeeping, live in-memory agent) with a restorable trash, batch archive/unarchive/delete, and a configurable policy for the sessions a workspace leaves behind when it is deleted. |
+| [`dsh-session-export`](plugins/sessionExport) | Session export: turn a session log into a transcript in Markdown, plain text, HTML, JSONL, or PDF, with home paths, user names, e-mail addresses, and credentials redacted. Tool `export_session` plus the `/export-session` command; batch export, overwrite protection, no dependencies (the PDF writer is hand-rolled). |
 
 ## Install
 
 From a local checkout:
 
 ```
-plugin_manager install_bundle  target=/absolute/path/to/Deepseek-Harness-Plugins/plugins/session-manager
+plugin_manager install_bundle  target=/absolute/path/to/Deepseek-Harness-Plugins/plugins/sessionManager
 ```
 
 Straight from GitHub (pnpm git subdirectory spec):
 
 ```
-plugin_manager install_bundle  target=github:Seraph-x/Deepseek-Harness-Plugins#path:/plugins/session-manager
+plugin_manager install_bundle  target=github:Seraph-x/Deepseek-Harness-Plugins#path:/plugins/sessionManager
 ```
 
 After changing plugin code: reload the Host half (`plugin_manager` `set_plugin`, target `include:<patch id>`, disable then enable) and refresh the page for the client half.
@@ -44,7 +45,8 @@ A plugin package may expose several loader rows through extra `exports` entries 
 
 ```bash
 pnpm install          # links the workspace packages
-pnpm --filter dsh-session-manager test   # if the package defines tests
+pnpm --filter dsh-session-manager test
+pnpm --filter dsh-session-export test
 ```
 
 ## License

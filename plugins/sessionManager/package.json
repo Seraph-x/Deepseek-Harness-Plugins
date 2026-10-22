@@ -6,9 +6,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Seraph-x/Deepseek-Harness-Plugins.git",
-    "directory": "plugins/session-manager"
+    "directory": "plugins/sessionManager"
   },
-  "homepage": "https://github.com/Seraph-x/Deepseek-Harness-Plugins/tree/main/plugins/session-manager",
+  "homepage": "https://github.com/Seraph-x/Deepseek-Harness-Plugins/tree/main/plugins/sessionManager",
   "bugs": "https://github.com/Seraph-x/Deepseek-Harness-Plugins/issues",
   "type": "module",
   "description": "Session manager for DSH: delete sessions for real (files, projection cache, workspace bookkeeping) with a restorable trash, batch archive/delete, and a policy for sessions left behind when a workspace is deleted.",

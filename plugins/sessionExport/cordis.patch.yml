@@ -1,0 +1,5 @@
+# Add-only: this bundle inserts its own loader row and never overrides a
+# shipped plugin. Override the config in the profile's cordis.patch.yml.
+- insert:
+    - id: session-export
+      name: 'dsh-session-export'

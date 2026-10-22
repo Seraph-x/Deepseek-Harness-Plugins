@@ -1,0 +1,43 @@
+{
+  "name": "dsh-session-export",
+  "version": "1.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Export a DSH session log as a sanitized transcript in Markdown, plain text, HTML, JSONL, or PDF: host tool export_session plus the /export-session command.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./render": "./lib/render.js",
+    "./render-pdf": "./lib/render-pdf.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/render.js",
+    "lib/render-pdf.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "session",
+    "markdown",
+    "text",
+    "html",
+    "jsonl",
+    "pdf",
+    "export",
+    "redaction"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
