@@ -95,15 +95,33 @@ The result is `{ exports: [...], failed: [...] }`. Each export item carries
 ## Command flags
 
     /export-session                          markdown next to the session cwd
-    /export-session --pdf                    PDF, same place
-    /export-session out/session.txt          exact path
-    /export-session --out=out/s.pdf --pdf
-    /export-session --all --dir=dumps --html every session in the cache
-    /export-session --pdf --no-tools --reasoning
-    /export-session --no-sanitize --overwrite
+    /export-session --bare                   PDF of the conversation alone, unsanitized
+    /export-session -pqr                     the same thing, spelled out
+    /export-session -p ~/Desktop/raw.pdf     PDF at an exact path
+    /export-session out/session.txt          exact path, format from the extension
+    /export-session -a --dir=dumps --html   every session in the cache
+    /export-session -pq --reasoning          conversation only, reasoning kept, sanitized
+    /export-session -f                       overwrite instead of appending -1
 
-`--pdf --txt --md --html --jsonl --format=<name> --out= --dir= --all
---no-tools --no-calls --reasoning --no-notices --no-sanitize --overwrite -f`
+Short flags combine: `-pqr` is `-p -q -r`.
+
+| Flag | Long form | Effect |
+| --- | --- | --- |
+| `-p` | `--pdf` | PDF |
+| `-t` | `--txt` | plain text |
+| `-q` | `--chat` | conversation only: no tool calls, no tool results, no notices |
+| `-r` | `--no-sanitize` | skip redaction |
+| `-a` | `--all` | every session the cache knows |
+| `-f` | `--overwrite` | reuse the file name |
+| `-o=` | `--out=` | exact output path |
+| — | `--bare` / `--raw` | `-p -q -r` in one word: a PDF of the conversation alone, unsanitized |
+| — | `--md` `--html` `--jsonl` `--format=<name>` | the remaining formats |
+| — | `--reasoning` | keep reasoning blocks (off by default) |
+| — | `--no-tools` `--no-calls` `--no-notices` | turn off one category at a time |
+| — | `--dir=` `--name=` | output directory and file-name template |
+
+`--bare` turns redaction off, so the PDF carries real home paths and any
+credential the session happened to contain. Keep it local.
 
 ## Configuration
 

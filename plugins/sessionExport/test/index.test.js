@@ -72,3 +72,33 @@ test('file name template expands the title token', () => {
 test('command parser reads a name template', () => {
 	assert.deepEqual(parseCommandInput('--name={title}-{short}.{ext} --pdf'), { file_name: '{title}-{short}.{ext}', format: 'pdf' });
 });
+
+test('the bare preset means a PDF of the conversation alone', () => {
+	const expected = { format: 'pdf', include_tool_results: false, include_tool_calls: false, include_notices: false, sanitize: false };
+	assert.deepEqual(parseCommandInput('--bare'), expected);
+	assert.deepEqual(parseCommandInput('--raw'), expected);
+	assert.deepEqual(parseCommandInput('-p -q -r'), expected);
+	assert.deepEqual(parseCommandInput('-pqr'), expected);
+});
+
+test('short flags work on their own and combine', () => {
+	assert.deepEqual(parseCommandInput('-p'), { format: 'pdf' });
+	assert.deepEqual(parseCommandInput('-t'), { format: 'text' });
+	assert.deepEqual(parseCommandInput('-q'), { include_tool_results: false, include_tool_calls: false, include_notices: false });
+	assert.deepEqual(parseCommandInput('-r'), { sanitize: false });
+	assert.deepEqual(parseCommandInput('-a'), { all: true });
+	assert.deepEqual(parseCommandInput('-f'), { overwrite: true });
+	assert.deepEqual(parseCommandInput('--chat'), { include_tool_results: false, include_tool_calls: false, include_notices: false });
+	assert.deepEqual(parseCommandInput('-o=/tmp/x.pdf'), { output_path: '/tmp/x.pdf' });
+});
+
+test('a later format flag overrides the preset', () => {
+	assert.equal(parseCommandInput('--bare --md').format, 'markdown');
+	assert.equal(parseCommandInput('-pqr -t').format, 'text');
+});
+
+test('long options are not split into short flags', () => {
+	assert.deepEqual(parseCommandInput('--pdf'), { format: 'pdf' });
+	assert.deepEqual(parseCommandInput('--html'), { format: 'html' });
+	assert.deepEqual(parseCommandInput('--jsonl'), { format: 'jsonl' });
+});

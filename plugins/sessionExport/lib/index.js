@@ -385,25 +385,48 @@ function summarize(value) {
 export function parseCommandInput(raw) {
 	const args = {};
 	let path = '';
-	for (const token of String(raw).split(/\s+/u)) {
-		if (token.length === 0) continue;
-		if (token === '--no-tools' || token === '--no-results') args.include_tool_results = false;
-		else if (token === '--no-calls') args.include_tool_calls = false;
-		else if (token === '--reasoning') args.include_reasoning = true;
-		else if (token === '--no-notices') args.include_notices = false;
-		else if (token === '--no-sanitize') args.sanitize = false;
-		else if (token === '--overwrite' || token === '-f') args.overwrite = true;
-		else if (token === '--all') args.all = true;
-		else if (token === '--pdf') args.format = 'pdf';
-		else if (token === '--txt' || token === '--text') args.format = 'text';
-		else if (token === '--md' || token === '--markdown') args.format = 'markdown';
-		else if (token === '--html') args.format = 'html';
-		else if (token === '--jsonl') args.format = 'jsonl';
-		else if (token.startsWith('--format=')) args.format = token.slice('--format='.length);
-		else if (token.startsWith('--out=')) path = token.slice('--out='.length);
-		else if (token.startsWith('--dir=')) args.output_dir = token.slice('--dir='.length);
-		else if (token.startsWith('--name=')) args.file_name = token.slice('--name='.length);
-		else if (!token.startsWith('-')) path = token;
+	for (const word of String(raw).split(/\s+/u)) {
+		if (word.length === 0) continue;
+		// `-pqr` expands to `-p -q -r`; long options keep their own dashes.
+		const tokens = /^-[A-Za-z]{2,}$/u.test(word) ? Array.from(word.slice(1), (ch) => '-' + ch) : [word];
+		for (const token of tokens) {
+			// Whole-output presets first, so a later format flag still wins.
+			if (token === '--bare' || token === '--raw') {
+				args.format = 'pdf';
+				args.include_tool_results = false;
+				args.include_tool_calls = false;
+				args.include_notices = false;
+				args.sanitize = false;
+			}
+			else if (token === '--chat' || token === '--dialogue' || token === '-q') {
+				args.include_tool_results = false;
+				args.include_tool_calls = false;
+				args.include_notices = false;
+			}
+			else if (token === '-r') args.sanitize = false;
+			else if (token === '-p') args.format = 'pdf';
+			else if (token === '-t') args.format = 'text';
+			else if (token === '-a') args.all = true;
+			else if (token === '-f') args.overwrite = true;
+			else if (token === '--no-tools' || token === '--no-results') args.include_tool_results = false;
+			else if (token === '--no-calls') args.include_tool_calls = false;
+			else if (token === '--reasoning') args.include_reasoning = true;
+			else if (token === '--no-notices') args.include_notices = false;
+			else if (token === '--no-sanitize') args.sanitize = false;
+			else if (token === '--overwrite') args.overwrite = true;
+			else if (token === '--all') args.all = true;
+			else if (token === '--pdf') args.format = 'pdf';
+			else if (token === '--txt' || token === '--text') args.format = 'text';
+			else if (token === '--md' || token === '--markdown') args.format = 'markdown';
+			else if (token === '--html') args.format = 'html';
+			else if (token === '--jsonl') args.format = 'jsonl';
+			else if (token.startsWith('--format=')) args.format = token.slice('--format='.length);
+			else if (token.startsWith('--out=')) path = token.slice('--out='.length);
+			else if (token.startsWith('-o=')) path = token.slice('-o='.length);
+			else if (token.startsWith('--dir=')) args.output_dir = token.slice('--dir='.length);
+			else if (token.startsWith('--name=')) args.file_name = token.slice('--name='.length);
+			else if (!token.startsWith('-')) path = token;
+		}
 	}
 	if (path.length > 0) {
 		if (args.all === true) args.output_dir = path;
@@ -435,8 +458,8 @@ export function apply(ctx, config = {}) {
 	ctx.commands.register({
 		definitionId: 'dsh-session-export',
 		name: 'export-session',
-		description: 'Export this session as a sanitized transcript (markdown by default; --pdf, --txt, --html, --jsonl)',
-		input: { hint: '[path] [--pdf|--txt|--html|--jsonl] [--all] [--no-tools] [--no-calls] [--reasoning] [--no-notices] [--no-sanitize] [--name=template] [--overwrite]' },
+		description: 'Export this session as a transcript. --bare gives a PDF of the conversation alone, unsanitized. -p PDF, -t text, -q conversation only, -r no redaction, -a every session, -f overwrite.',
+		input: { hint: '[path] [--bare] [-p|-t] [-q] [-r] [-a] [-f] [--md|--html|--jsonl] [--reasoning] [--name=template] [--dir=path] [-o=path]' },
 		async handler(invocation) {
 			const raw = typeof invocation.rawInput === 'string' ? invocation.rawInput.trim() : '';
 			try {

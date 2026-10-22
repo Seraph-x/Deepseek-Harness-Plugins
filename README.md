@@ -55,6 +55,9 @@ adds the missing half.
   reader's own fonts.
 
 Two entry points: the `export_session` tool and the `/export-session` command.
+The command takes short flags that combine, so the common case is one word —
+`/export-session --bare` is a PDF of the conversation alone, unsanitized;
+`-pqr` spells the same thing out.
 
 ## Install
 

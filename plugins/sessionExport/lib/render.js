@@ -348,16 +348,13 @@ export function collectTranscript(header, events, options = {}) {
 			continue;
 		}
 		if (event.type === 'tool/call') {
-			if (typeof data.callId === 'string' && typeof data.name === 'string') {
-				callNames.set(data.callId, data.name);
-				// A tool call that only ever appears as an event still counts.
-				if (includeToolCalls && data.name !== undefined) counters.toolCalls += 0;
-			}
+			if (typeof data.callId === 'string' && typeof data.name === 'string') callNames.set(data.callId, data.name);
 			continue;
 		}
 		if (event.type === 'tool/result') {
-			counters.toolResults += 1;
+			// Counted only when the block is emitted, so the header reports what the file holds.
 			if (!includeToolResults) continue;
+			counters.toolResults += 1;
 			const message = data.message !== null && typeof data.message === 'object' ? data.message : {};
 			const text = textOfBlocks(message.content);
 			const source = data.message !== null && typeof data.message === 'object' && data.message.source !== null && typeof data.message.source === 'object' ? data.message.source : {};

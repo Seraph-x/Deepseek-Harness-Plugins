@@ -218,3 +218,17 @@ test('file title drops trailing dots so Windows accepts the name', () => {
 	assert.equal(fileTitle('done.'), 'done');
 	assert.equal(fileTitle('v1.2.'), 'v1.2');
 });
+
+test('counters report what the file holds, not what the log holds', () => {
+	const events = [
+		{ type: 'assistant/message', data: { message: { content: [{ type: 'tool-call', id: 'c1', name: 'bash', arguments: { cmd: 'ls' } }] } } },
+		{ type: 'tool/result', data: { callId: 'c1', message: { content: [{ type: 'text', text: 'out' }] } } }
+	];
+	const full = collectTranscript({ id: 's1' }, events, { includeToolCalls: true, includeToolResults: true });
+	assert.equal(full.counters.toolCalls, 1);
+	assert.equal(full.counters.toolResults, 1);
+	const quiet = collectTranscript({ id: 's1' }, events, { includeToolCalls: false, includeToolResults: false });
+	assert.equal(quiet.counters.toolCalls, 0, 'hidden tool calls are not counted');
+	assert.equal(quiet.counters.toolResults, 0, 'hidden tool results are not counted');
+	assert.equal(quiet.counters.records, 2, 'the log size still reports every record');
+});
