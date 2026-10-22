@@ -43,6 +43,10 @@ adds the missing half.
   forge tokens, JWTs, cookies, private keys, `Authorization` headers, and any
   assignment whose key looks secret. The result reports per-category hit counts,
   so a sweep is verifiable instead of assumed.
+- **Names that say what the session was.** Files are named after the session
+  title — `安装-dsh-purge-插件.pdf`, not `session-1a2b3c4d.pdf` — trimmed to a
+  filesystem-safe stem of at most 50 em units. Name templates cover the cases
+  where that is not enough.
 - **Batch and safe writes.** Export one session or many, with per-session
   failures reported separately; existing files are never clobbered unless you
   ask.

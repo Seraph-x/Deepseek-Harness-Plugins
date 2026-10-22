@@ -5,6 +5,7 @@ import {
 	collectTranscript,
 	createSanitizer,
 	emWidth,
+	fileTitle,
 	fencesBalanced,
 	labelOf,
 	renderHtml,
@@ -191,4 +192,29 @@ test('short id drops the session prefix', () => {
 
 test('slug keeps CJK and drops punctuation', () => {
 	assert.equal(slug('Turn 1 — 继续'), 'turn-1--继续');
+});
+
+test('file title turns prose into a short safe stem', () => {
+	assert.equal(fileTitle('安装 dsh-purge 插件'), '安装-dsh-purge-插件');
+	assert.equal(fileTitle('Morning greeting to AI assistant'), 'Morning-greeting-to-AI-assistant');
+	assert.equal(fileTitle('看看 [这个](http://x) 和 a|b'), '看看-这个-和-a-b');
+	assert.equal(fileTitle('安装这个插件https://github.com/YuJ'), '安装这个插件');
+	assert.equal(fileTitle('a/b\\c:d*e?f"g<h>i|j'), 'a-b-c-d-e-f-g-h-i-j');
+});
+
+test('file title is trimmed to a width budget and never ends on a separator', () => {
+	const long = fileTitle('x'.repeat(200));
+	assert.ok(emWidth(long) <= 50, 'ASCII budget is 50 em');
+	assert.doesNotMatch(long, /-$/u);
+	const cjk = fileTitle('中文标题'.repeat(40));
+	assert.ok(emWidth(cjk) <= 50, 'CJK budget is 50 em');
+	assert.ok(cjk.length > 0);
+	assert.equal(fileTitle('', 50), '');
+	assert.equal(fileTitle('   ', 50), '');
+	assert.equal(fileTitle('///', 50), '');
+});
+
+test('file title drops trailing dots so Windows accepts the name', () => {
+	assert.equal(fileTitle('done.'), 'done');
+	assert.equal(fileTitle('v1.2.'), 'v1.2');
 });

@@ -2,7 +2,7 @@ import { mkdir, readdir, writeFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import { collectTranscript, renderPlainText, RENDERERS } from './render.js';
+import { collectTranscript, fileTitle, renderPlainText, RENDERERS } from './render.js';
 import { renderPdf } from './render-pdf.js';
 
 /** Stable Loader identity. */
@@ -33,7 +33,8 @@ const DEFAULTS = Object.freeze({
 	resultTailLines: 15,
 	maxArgumentChars: 4000,
 	ruleWidth: 78,
-	fileName: 'session-{short}.{ext}',
+	fileName: '{title}.{ext}',
+	fileTitleUnits: 50,
 	overwrite: false
 });
 
@@ -62,7 +63,11 @@ const PARAMETERS = {
 		},
 		output_dir: {
 			type: 'string',
-			description: 'Destination directory. Required when exporting several sessions; the file name comes from the fileName template.'
+			description: 'Destination directory. Required when exporting several sessions; the file name comes from the file_name template.'
+		},
+		file_name: {
+			type: 'string',
+			description: 'File-name template. Tokens: {title} (session title, trimmed to a filesystem-safe stem), {short} (8-character session id), {id}, {date}, {time}, {format}, {ext}. Defaults to "{title}.{ext}"; add {short} to keep two sessions with the same title apart.'
 		},
 		overwrite: {
 			type: 'boolean',
@@ -170,6 +175,7 @@ function policyOf(config, args) {
 		usernames: Array.isArray(merged.usernames) ? merged.usernames : [],
 		literals: Array.isArray(merged.literals) ? merged.literals : [],
 		fileName: typeof args.file_name === 'string' && args.file_name.length > 0 ? args.file_name : merged.fileName,
+		fileTitleUnits: merged.fileTitleUnits,
 		overwrite: typeof args.overwrite === 'boolean' ? args.overwrite : merged.overwrite,
 		ruleWidth: merged.ruleWidth,
 		limits: {
@@ -233,6 +239,7 @@ export function fileNameFor(template, values) {
 	const name = String(template)
 		.replace(/\{id\}/gu, values.id)
 		.replace(/\{short\}/gu, values.short)
+		.replace(/\{title\}/gu, values.title)
 		.replace(/\{date\}/gu, values.date)
 		.replace(/\{time\}/gu, values.time)
 		.replace(/\{format\}/gu, values.format)
@@ -287,9 +294,11 @@ async function exportOne(ctx, config, args, exec, sessionId, policy, cwd) {
 	const ext = FORMATS[policy.format];
 	const short = typeof transcript.shortId === 'string' && transcript.shortId.length > 0 ? transcript.shortId : sessionId;
 	const stamp = new Date();
+	const stem = fileTitle(transcript.title, policy.fileTitleUnits);
 	const name = fileNameFor(policy.fileName, {
 		id: sessionId,
 		short,
+		title: stem.length > 0 ? stem : 'session-' + short,
 		date: stamp.toISOString().slice(0, 10),
 		time: stamp.toISOString().slice(11, 19).replace(/:/gu, ''),
 		format: policy.format,
@@ -393,6 +402,7 @@ export function parseCommandInput(raw) {
 		else if (token.startsWith('--format=')) args.format = token.slice('--format='.length);
 		else if (token.startsWith('--out=')) path = token.slice('--out='.length);
 		else if (token.startsWith('--dir=')) args.output_dir = token.slice('--dir='.length);
+		else if (token.startsWith('--name=')) args.file_name = token.slice('--name='.length);
 		else if (!token.startsWith('-')) path = token;
 	}
 	if (path.length > 0) {
@@ -426,7 +436,7 @@ export function apply(ctx, config = {}) {
 		definitionId: 'dsh-session-export',
 		name: 'export-session',
 		description: 'Export this session as a sanitized transcript (markdown by default; --pdf, --txt, --html, --jsonl)',
-		input: { hint: '[path] [--pdf|--txt|--html|--jsonl] [--all] [--no-tools] [--reasoning] [--no-sanitize] [--overwrite]' },
+		input: { hint: '[path] [--pdf|--txt|--html|--jsonl] [--all] [--no-tools] [--no-calls] [--reasoning] [--no-notices] [--no-sanitize] [--name=template] [--overwrite]' },
 		async handler(invocation) {
 			const raw = typeof invocation.rawInput === 'string' ? invocation.rawInput.trim() : '';
 			try {

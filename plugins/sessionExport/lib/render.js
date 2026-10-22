@@ -550,6 +550,42 @@ export function renderPlainText(transcript, options = {}) {
 	return { text, stats: statsOf(text, transcript), redactions };
 }
 
+/**
+ * Turn a session title into a short file-name stem that says what the session was about.
+ *
+ * Titles arrive from `session/title` events, so they are prose, not slugs: they may carry
+ * markdown, a URL, or characters no filesystem accepts. Strip the noise, collapse runs of
+ * whitespace into single hyphens, and cut the result at `maxUnits` em units — a CJK
+ * character costs 1.0 and an ASCII character 0.6, so a mostly-Chinese title stays readable
+ * at the same byte cost as a longer English one.
+ *
+ * @param {string} title Raw session title.
+ * @param {number} [maxUnits] Width budget in em units. Defaults to 50.
+ * @returns {string} A safe stem, or an empty string when nothing usable survives.
+ */
+export function fileTitle(title, maxUnits = 50) {
+	let text = String(title ?? '').normalize('NFKC');
+	text = text
+		.replace(/!\[[^\]]*\]\([^)]*\)/gu, ' ')
+		.replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1')
+		.replace(/https?:\/\/\S+/giu, ' ')
+		.replace(/`([^`]*)`/gu, '$1');
+	text = text.replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu, ' ');
+	text = text.replace(/[,;!?。，、；！？]/gu, ' ');
+	text = text.replace(/\s+/gu, '-').replace(/-{2,}/gu, '-').replace(/^[-.]+|[-.]+$/gu, '');
+	if (text.length === 0) return '';
+	const budget = Number.isFinite(maxUnits) && maxUnits > 0 ? maxUnits : 50;
+	let out = '';
+	let width = 0;
+	for (const ch of text) {
+		const cost = emWidth(ch);
+		if (width + cost > budget) break;
+		out += ch;
+		width += cost;
+	}
+	return out.replace(/[-.]+$/gu, '');
+}
+
 /** Advance width in em units: ASCII 0.6 (Courier), wide glyphs 1.0. */
 export function emWidth(text) {
 	let total = 0;

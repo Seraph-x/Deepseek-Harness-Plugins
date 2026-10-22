@@ -61,3 +61,14 @@ test('file name template expands every placeholder', () => {
 	assert.equal(fileNameFor('plain', values), 'plain.pdf');
 	assert.equal(fileNameFor('keep.md', values), 'keep.md');
 });
+
+test('file name template expands the title token', () => {
+	const values = { id: 'session-abc', short: 'abc12345', title: '安装-dsh-purge-插件', date: '2026-10-22', time: '093000', format: 'pdf', ext: 'pdf' };
+	assert.equal(fileNameFor('{title}.{ext}', values), '安装-dsh-purge-插件.pdf');
+	assert.equal(fileNameFor('{title}-{short}.{ext}', values), '安装-dsh-purge-插件-abc12345.pdf');
+	assert.equal(fileNameFor('{date}-{title}.{ext}', values), '2026-10-22-安装-dsh-purge-插件.pdf');
+});
+
+test('command parser reads a name template', () => {
+	assert.deepEqual(parseCommandInput('--name={title}-{short}.{ext} --pdf'), { file_name: '{title}-{short}.{ext}', format: 'pdf' });
+});

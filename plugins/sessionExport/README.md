@@ -77,7 +77,8 @@ verifiable instead of assumed.
 | `sessions` | string[] | — | batch export; per-session failures come back in `failed` |
 | `format` | enum | `markdown` | `markdown` \| `text` \| `html` \| `jsonl` \| `pdf` |
 | `output_path` | string | — | exact file path (extension added when missing) |
-| `output_dir` | string | session cwd | directory; the file name comes from `fileName` |
+| `output_dir` | string | session cwd | directory; the file name comes from `file_name` |
+| `file_name` | string | `{title}.{ext}` | name template for directory exports; tokens `{title}`, `{short}`, `{id}`, `{date}`, `{time}`, `{format}`, `{ext}` |
 | `overwrite` | boolean | `false` | reuse the name instead of appending `-1`, `-2`, … |
 | `sanitize` | boolean | `true` | run the redaction pass |
 | `include_tool_results` | boolean | `true` | include tool results |
@@ -122,20 +123,38 @@ Plugin config (a row in the profile's `cordis.patch.yml`):
         resultTailLines: 15
         maxArgumentChars: 4000
         ruleWidth: 78
-        fileName: "session-{short}.{ext}"
+        fileName: "{title}.{ext}"
+        fileTitleUnits: 50
         overwrite: false
         usernames: []
         literals: []
 
-`fileName` placeholders: `{id}`, `{short}`, `{date}`, `{time}`, `{format}`,
-`{ext}`. Every tool parameter above overrides the config value per call.
+`fileName` placeholders: `{title}`, `{id}`, `{short}`, `{date}`, `{time}`,
+`{format}`, `{ext}`. Every tool parameter above overrides the config value per
+call.
+
+`{title}` is the session title taken from its `session/title` event — the short
+one the host refines after the first turn, not the truncated first message. It
+is not a slug: `fileTitle()` strips markdown, URLs, and characters no
+filesystem accepts, turns whitespace and punctuation runs into single hyphens,
+and cuts the stem at `fileTitleUnits` em units (a CJK character costs 1.0, an
+ASCII character 0.6, so a Chinese title and a longer English one cost the same).
+A title that reduces to nothing falls back to `session-<short>`.
+
+    Talkatone 分流规则查找      -> Talkatone-分流规则查找.pdf
+    安装 dsh-purge 插件          -> 安装-dsh-purge-插件.pdf
+    看看 [这个](http://x) 和 a|b -> 看看-这个-和-a-b.pdf
+
+Two sessions can share a title. The default name does not carry the id, so the
+second export lands on `-1`; pass `file_name: "{title}-{short}.{ext}"` (or
+`--name=...` on the command) when that matters.
 
 ## Install
 
 1. Add the package to the profile:
 
        cd ~/.dsh/profiles/desktop
-       pnpm add link:/path/to/Deepseek-Harness-Plugins/plugins/session-export
+       pnpm add link:/path/to/Deepseek-Harness-Plugins/plugins/sessionExport
 
    or add the `link:` dependency by hand and run `pnpm install`.
 
@@ -147,7 +166,7 @@ Plugin config (a row in the profile's `cordis.patch.yml`):
 
 ## Tests
 
-    cd plugins/session-export
+    cd plugins/sessionExport
     node --test test/
 
 Covers the redaction rules (including the linear-time e-mail scan), label
