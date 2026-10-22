@@ -27,7 +27,7 @@ adds the missing half.
 - **Restorable trash.** Every trashed session keeps its original path,
   workspace, title, and size, so restore puts the row back in the sidebar
   without a page reload.
-- **Batch operations.** A *Session management* settings page lists every
+- **Batch operations.** A *Session manager* settings page lists every
   session the host knows, with search, filters, and select-all. Archive,
   unarchive, trash, or delete in bulk; each action reports per-session success
   and failure, and both delete paths need a second click.
