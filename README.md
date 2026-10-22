@@ -109,6 +109,24 @@ stays independently versioned.
 Directory names are camelCase. Package names are lowercase with hyphens because
 npm forbids capitals.
 
+## Archiving a workspace
+
+Deleting a workspace directory does not delete its sessions — the logs live
+under `~/.dsh/sessions/<slug>/` and survive the directory — but the UI has no
+workspace left to list them under. `scripts/export-workspace.mjs` writes a
+readable copy first:
+
+    node scripts/export-workspace.mjs ~/Downloads/Test ~/Desktop/test-archive
+
+One Markdown file per session, named after the session title, with the tool
+calls and results intact — that is the part you need when you come back to ask
+an agent why something broke. Add `--no-sanitize` to keep real paths, or a
+third argument (`jsonl`, `text`, `html`, `pdf`) to change the format.
+
+The slug is lossy: `/a/b-c` and `/a/b/c` collapse to the same session
+directory, so the script re-checks each candidate against the real `cwd`
+recorded in the projection cache and skips the ones that belong elsewhere.
+
 ## Development
 
 ```bash
