@@ -1,135 +1,135 @@
 # dsh-session-manager
 
-DSH 可以归档会话，但**从不删除**：`sessionPersistence` 没有 `delete`、`sessionController` 没有 `delete`、`workspaceRegistry` 只有 archive/pin。这个插件把「会话管理」补齐：真删（带可恢复的回收站）、批量归档 / 解除归档、批量删除、以及删除工作区时怎么处理其中的会话。
+DSH can archive a session, but it **never deletes** one: `sessionPersistence` has no `delete`, `sessionController` has no `delete`, and `workspaceRegistry` only offers archive/pin. This plugin fills in "session management": real deletion (with a restorable trash), batch archive / unarchive, batch delete, and what happens to a workspace's sessions when you delete that workspace.
 
-> 旧名 `dsh-plugin-session-delete`（v1）已更名为 `dsh-session-manager`（v2）。v1 删掉的回收站条目（`.session-delete.json`）仍能被读取和恢复。
+> The old name `dsh-plugin-session-delete` (v1) is now `dsh-session-manager` (v2). Trash entries deleted by v1 (`.session-delete.json`) can still be read and restored.
 
-## 用起来是什么样
+## What it looks like in use
 
-**删除**：侧栏会话行的 `...` 菜单最底部多一项 **删除会话**（红色文字 + 14px 垃圾桶图标，行高/内距与「置顶会话」等系统项完全一致，带分隔线，落在「复制会话 ID」之后）。
-点它 → 帧级确认框（`shell.overlay`，不在菜单里，所以关菜单后仍在）→ 二选一：
+**Delete**: the `...` menu on a sidebar session row gains **Delete session** at the very bottom (red text plus a 14px trash icon, with the same row height and padding as system items such as "Pin session", a separator line, and placed after "Copy session ID").
+Click it → a frame-level confirm dialog (`shell.overlay`, outside the menu, so it survives the menu closing) → choose one of two:
 
-- **移到回收站**：`~/.dsh/.session-trash/<时间戳>__<sessionId>/`，目录里附 `.session-manager.json`（原始路径、workspace、标题、大小、恢复命令）。
-- **彻底删除**：`rm -rf` 等价，不可撤销。
+- **Move to trash**: `~/.dsh/.session-trash/<timestamp>__<sessionId>/`, with a `.session-manager.json` inside (original path, workspace, title, size, restore command).
+- **Delete permanently**: equivalent to `rm -rf`, not undoable.
 
-删完弹一条结果提示；回收站模式下提示里带 **撤销** 按钮，直接调恢复接口。
+A result toast follows the deletion; in trash mode the toast carries an **Undo** button that calls the restore endpoint directly.
 
-**恢复**：设置 → **会话管理** → 回收站页（下面详述）。
+**Restore**: Settings → **Session manager** → the Trash tab (detailed below).
 
-## 设置页：会话管理
+## Settings page: Session manager
 
-设置面板里多一页 **会话管理**（`settings.section`，order 600），三个标签：
+The settings panel gains one more page, **Session manager** (`settings.section`, order 600), with three tabs:
 
-- **会话**：Host 已知的全部会话（`/sessions`），带运行中/已归档徽章、所在工作区、时间。搜索框 + 四个过滤 chip（全部 / 未归档 / 已归档 / 未分组）+ 全选。勾选后可以 **归档 / 解除归档 / 移到回收站 / 彻底删除**——批量走 `/batch/archive`、`/batch/delete`，逐个执行并回报每条的成败；两个删除动作都要**再点一次确认**（按钮文案变成「再点一次彻底删除」）。
-- **回收站**：所有被删会话（标题、删除时间、大小、sessionId），每条 **恢复 / 彻底删除**，底部 **清空回收站**（两步确认）。
-- **设置**：两个策略单选——删除工作区时怎么处理其中的会话（交给系统 / 归档 / 删除），以及本插件删除会话时默认走回收站还是彻底删除。改一下即时写盘，页面底部显示配置文件路径。
+- **Sessions**: every session the host knows about (`/sessions`), with running/archived badges, owning workspace, and time. A search box plus four filter chips (All / Unarchived / Archived / Ungrouped) and select-all. Once selected you can **archive / unarchive / move to trash / delete permanently** — bulk goes through `/batch/archive` and `/batch/delete`, executed one by one with each success or failure reported back; both delete actions require **a second click to confirm** (the button label becomes "Delete permanently?").
+- **Trash**: every deleted session (title, deletion time, size, sessionId), each with **Restore / Delete permanently**, and **Empty trash** at the bottom (two-step confirmation).
+- **Settings**: two policy radio groups — what happens to a workspace's sessions when that workspace is deleted (leave it to the system / archive / delete), and whether this plugin's deletions go to the trash or are permanent by default. Every change is written to disk immediately, and the config file path is shown at the bottom of the page.
 
-恢复做的事：目录搬回原位 → 删掉残留 `.session-manager.json` → `Workspace.attachSession(id)` 挂回原 workspace → 客户端 `sessions.refresh()` 重拉基线。侧栏那一行立刻回来，不需要刷新页面。
+What restore does: move the directory back to its original location → remove the leftover `.session-manager.json` → `Workspace.attachSession(id)` to reattach it to its original workspace → the client's `sessions.refresh()` to re-pull the baseline. The sidebar row comes back immediately, with no page reload.
 
-## 删除工作区时的会话策略
+## Session policy when a workspace is deleted
 
-侧栏没有工作区级菜单插槽，所以这条策略在 Host 侧实现：插件订阅 `domain/changed`，记住每个工作区的 id / path / 标题 / 会话列表；当 `workspace` 域的 `workspaces` 表出现 `deleted` 时，取出该工作区快照按配置处理其中的会话：
+The sidebar has no workspace-level menu slot, so this policy lives on the host side: the plugin subscribes to `domain/changed` and remembers each workspace's id / path / title / session list; when a `deleted` entry appears in the `workspace` domain's `workspaces` table, it takes that workspace's snapshot and handles its sessions according to the config:
 
-| `workspaceDeleteMode` | 行为 |
+| `workspaceDeleteMode` | Behavior |
 | --- | --- |
-| `system`（默认） | 什么都不做，会话落到侧栏「未分组」，与系统原生行为一致 |
-| `archive` | 全部归档（`archiveSession(id, { stopActivity: true })`），进「已归档」，随时可批量解除 |
-| `delete` | 全部删除，走 `deleteMode` 指定的回收站或彻底删除 |
+| `system` (default) | Do nothing; the sessions land in "Ungrouped" in the sidebar, matching native behavior |
+| `archive` | Archive everything (`archiveSession(id, { stopActivity: true })`), so they move to "Archived" and can be unarchived in bulk at any time |
+| `delete` | Delete everything, through the trash or permanent deletion selected by `deleteMode` |
 
-配置文件 `~/.dsh/session-manager.config.json`（也可在设置页改）：
+Config file `~/.dsh/session-manager.config.json` (also editable from the settings page):
 
 ```json
 { "workspaceDeleteMode": "system", "deleteMode": "trash" }
 ```
 
-优先级：内置默认 < 加载器条目 `config` < 配置文件。
+Precedence: built-in defaults < loader entry `config` < config file.
 
-## 一次删除做了四件事
+## One deletion does four things
 
-| 目标 | 位置 | 手段 |
+| Target | Location | Method |
 | --- | --- | --- |
-| 内存里的 live 会话 | SessionStore / AgentService 的 `store` | `detachEntered(entry)`，触发 `session/disposed` |
-| 会话文件 | `$DSH_HOME/sessions/<cwd编码>/<sessionId>/` | 移到回收站或删除 |
-| 投影缓存 | `$DSH_HOME/storages/session_projcache/sessions/<sessionId>.json` | 删除 |
-| workspace 记账 | `workspace.json` 内存态 | `Workspace.detachSession(id)` + `unpinSession` + `unarchiveSession` |
+| The live session in memory | `store` of SessionStore / AgentService | `detachEntered(entry)`, which fires `session/disposed` |
+| Session files | `$DSH_HOME/sessions/<cwd-encoded>/<sessionId>/` | Move to trash or delete |
+| Projection cache | `$DSH_HOME/storages/session_projcache/sessions/<sessionId>.json` | Delete |
+| Workspace bookkeeping | the in-memory `workspace.json` | `Workspace.detachSession(id)` + `unpinSession` + `unarchiveSession` |
 
-只删磁盘文件不摘记账，侧栏那一行会一直挂着；只摘记账不删文件，磁盘上的数据会变成孤儿。所以两者都做。
+Deleting the disk files without detaching the bookkeeping leaves that sidebar row hanging forever; detaching the bookkeeping without deleting the files leaves the data on disk orphaned. So we do both.
 
-**为什么还要摘内存**：`sessionController.list()`（`dsh-api-session-controller/lib/types/list.js:108`）返回的是「attached **和** persisted 的会话」，实现里 `const live = this.ctx.sessions.get(id); if (live !== undefined) items.push(...)`。agent 的 owner 是 agents 服务自己的 ctx（`dsh-agent/lib/index.js:467` `resume()` 里 `const ownerCtx = this.ctx`），所以刷新页面、断开连接都不会释放它——只删文件，那一行会被 `list()` 继续吐出来，侧栏就把它归进「未分组」，看起来像「会话没删掉，只是从工作区移走了」。
+**Why detach from memory too**: `sessionController.list()` (`dsh-api-session-controller/lib/types/list.js:108`) returns "sessions that are attached **and** persisted"; the implementation does `const live = this.ctx.sessions.get(id); if (live !== undefined) items.push(...)`. An agent's owner is the agents service's own ctx (`const ownerCtx = this.ctx` inside `resume()` at `dsh-agent/lib/index.js:467`), so refreshing the page or dropping the connection never releases it — delete only the files and `list()` keeps emitting that row, the sidebar files it under "Ungrouped", and it looks like "the session wasn't deleted, it just moved out of the workspace".
 
-正确入口是 `SessionStore.detachEntered(entry)`（`dsh-session/lib/index.js:1887`）：`store.delete(id)` + 发 `session/disposed`；controller 监听它并发 `api-session/removed`，客户端 manager 收到后执行 `{kind:'remove'}`，**行立即消失，不需要刷新页面**。`AgentService.detachEntered` 同理（`:541`）。这两个方法不在服务目录里，所以全部用 `try/catch` + 特性检测包住：Host 升级后即使改名，删除流程也不会崩，只会少摘一层。
+The correct entry point is `SessionStore.detachEntered(entry)` (`dsh-session/lib/index.js:1887`): `store.delete(id)` + emit `session/disposed`; the controller listens for it and emits `api-session/removed`, the client manager receives that and applies `{kind:'remove'}`, and **the row disappears at once, with no page reload needed**. Same for `AgentService.detachEntered` (`:541`). Neither method is in the service catalog, so all of it is wrapped in `try/catch` plus feature detection: even if a host upgrade renames them, the deletion flow will not crash — it just detaches one layer less.
 
-## 恢复为什么必须两步
+## Why restore has to be two steps
 
-`Workspace.attachSession(id)` 会去读会话 header，校验 `header.cwd === workspace.path`。文件不在磁盘上，它直接抛 `session persistence holds no such session`。所以顺序固定：**先 rename 回原位，再 attach**。
+`Workspace.attachSession(id)` reads the session header and checks `header.cwd === workspace.path`. If the file is not on disk it throws `session persistence holds no such session` outright. So the order is fixed: **rename back to the original location first, then attach**.
 
-侧栏那一行还有第二个条件：客户端 sessions store 的 `list.byId[id]` 里必须有 summary。Host 的 `session.list()` 每次都扫盘，所以恢复后调 `ctx.sessions.refresh()`（内部 `remote.session.list({})`）就能拿到新 summary。workspace 侧不用管——`attachSession` 走 storage table.update，会触发 `domain/changed`，`useWorkspaces` 快照自动更新。
+That sidebar row has a second condition: the client sessions store must have a summary in `list.byId[id]`. The host's `session.list()` scans the disk every time, so after restoring, calling `ctx.sessions.refresh()` (internally `remote.session.list({})`) is enough to get the new summary. The workspace side needs nothing — `attachSession` goes through a storage table.update, which fires `domain/changed`, and the `useWorkspaces` snapshot updates itself.
 
-老条目没有 `workspaceId` 时，按 `.session-manager.json` 里的 `workspaceBucket` 与 `registry.list()` 的 path 做「只比字母数字」的归一化比对定位 workspace。
+When an old entry has no `workspaceId`, we locate the workspace by normalizing the `workspaceBucket` from `.session-manager.json` and the paths from `registry.list()` and comparing **alphanumerics only**.
 
-## 组成
+## Composition
 
-- `lib/index.js` — Host 半边。`inject: ['webServer']`，注册十条同源路由（`delete` / `trash` / `restore` / `trash/purge` / `live` / `evict` / `config` / `sessions` / `batch/delete` / `batch/archive`），外加一个 `domain/changed` 监听（工作区删除策略）。
-  - 守卫（全部路由共用）：仅 loopback、方法必须匹配、必须带 `x-dsh-session-manager: 1`、拒绝跨源 Origin、id 必须是纯标识符（禁止 `/` `\` `..`）。
-  - 会话在跑：先 best-effort `cancel`，再 `evictLiveAgent`（`sessions.detachEntered` → `agents.detachEntered` → agent scope dispose），最后才动文件；删后复查目录是否被活句柄写回，写回则回报 `partial` + `residual`。
-  - `{ "dryRun": true }` 只报告会删什么（路径、字节数、是否 busy），不动任何东西。
-- `lib/client.js` — 浏览器半边。`window.__ModuleLoader__.load(...)`，`inject: ['slots', 'locale']`。
-  - `sidebar.workspaces.session.menu.item`（order 500）、`settings.section`（id `session-manager`，order 600）、`shell.overlay`（order 500）。
-  - 删的正好是当前打开的那个会话时，先 `uiWorkspace.openWorkspace(...)` 挪开视线再刷新，避免面板停在一个已经不存在的会话上。
-  - 不 require 任何 Harness Client 包，样式全内联、只用 `--dsw-alias-*` token：host 升级不会把插槽条目搞崩。
-  - 插槽没把 inject 工厂的 prop 传进来时（`t` / `refresh` 等）全部有模块级兜底，不抛错。
-- `locale/*.json` — 插件管理页的标题/描述；界面文案走 `ctx.locale.register` + `bind`，跟随当前语言（en / zh）。
+- `lib/index.js` — the host half. `inject: ['webServer']`, registers ten same-origin routes (`delete` / `trash` / `restore` / `trash/purge` / `live` / `evict` / `config` / `sessions` / `batch/delete` / `batch/archive`), plus one `domain/changed` listener (the workspace-deletion policy).
+  - Guards (shared by every route): loopback only, method must match, must carry `x-dsh-session-manager: 1`, cross-origin `Origin` rejected, id must be a bare identifier (`/` `\` `..` forbidden).
+  - Session is running: best-effort `cancel` first, then `evictLiveAgent` (`sessions.detachEntered` → `agents.detachEntered` → agent scope dispose), and only then touch the files; after deleting, check again whether the directory was written back by a live handle, and if so report `partial` + `residual`.
+  - `{ "dryRun": true }` only reports what would be deleted (paths, byte counts, whether busy) and touches nothing.
+- `lib/client.js` — the browser half. `window.__ModuleLoader__.load(...)`, `inject: ['slots', 'locale']`.
+  - `sidebar.workspaces.session.menu.item` (order 500), `settings.section` (id `session-manager`, order 600), `shell.overlay` (order 500).
+  - When the session being deleted is the one currently open, call `uiWorkspace.openWorkspace(...)` first to look elsewhere and then refresh, so the panel does not sit on a session that no longer exists.
+  - Requires no Harness Client package at all; styles are fully inline and use only `--dsw-alias-*` tokens, so a host upgrade cannot break the slot entry.
+  - If the slot does not pass in the props of the inject factories (`t` / `refresh`, etc.), each one has a module-level fallback, so nothing throws.
+- `locale/*.json` — the title/description on the plugin management page; UI copy goes through `ctx.locale.register` + `bind` and follows the current language (en / zh).
 
-## 路由契约
+## Route contract
 
 ```bash
-# 删除（dryRun 只报告）
+# Delete (dryRun only reports)
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/delete \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
-  -d '{"sessionId":"session-xxxx","mode":"trash","displayTitle":"标题","dryRun":true}'
+  -d '{"sessionId":"session-xxxx","mode":"trash","displayTitle":"Title","dryRun":true}'
 
-# 回收站列表
+# Trash listing
 curl -s http://127.0.0.1:53199/dsh-session-manager/trash -H 'x-dsh-session-manager: 1'
 
-# 恢复（trashId 或 sessionId 二选一）
+# Restore (trashId or sessionId, pick one)
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/restore \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"trashId":"2026-10-18T11-25-39-134Z__session-xxxx"}'
 
-# 彻底清掉某条 / 清空整个回收站
+# Permanently purge one entry / empty the whole trash
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/trash/purge \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"trashId":"2026-10-18T11-25-39-134Z__session-xxxx"}'
 
-# 诊断：现在内存里挂着哪些 live 会话 / agent；带 sessionId 时顺带看 session.list() 还列不列它
+# Diagnostics: which live sessions / agents are held in memory right now; with sessionId, also whether session.list() still lists it
 curl -s 'http://127.0.0.1:53199/dsh-session-manager/live?sessionId=session-xxxx' -H 'x-dsh-session-manager: 1'
 
-# 会话总表（批量操作的输入）：title / cwd / running / archived / pinned / workspace
+# Session inventory (input for batch operations): title / cwd / running / archived / pinned / workspace
 curl -s http://127.0.0.1:53199/dsh-session-manager/sessions -H 'x-dsh-session-manager: 1'
 
-# 批量删除（mode 缺省取配置；最多 200 条）
+# Batch delete (mode defaults to the config; 200 entries max)
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/batch/delete \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"sessionIds":["session-a","session-b"],"mode":"trash"}'
 
-# 批量归档 / 解除归档
+# Batch archive / unarchive
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/batch/archive \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"sessionIds":["session-a"],"archived":true}'
 
-# 读 / 改配置
+# Read / update config
 curl -s http://127.0.0.1:53199/dsh-session-manager/config -H 'x-dsh-session-manager: 1'
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/config \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"workspaceDeleteMode":"archive","deleteMode":"purge"}'
 
-# 单独把某个会话从内存里摘掉（不动磁盘；delete 流程内部已经会做）
+# Detach a single session from memory (touches no disk; the delete flow already does this internally)
 curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/evict \
   -H 'content-type: application/json' -H 'x-dsh-session-manager: 1' \
   -d '{"sessionId":"session-xxxx"}'
 ```
 
-删除返回示例：
+Delete response example:
 
 ```json
 { "ok": true, "code": "deleted", "sessionId": "session-xxxx", "mode": "trash",
@@ -143,7 +143,7 @@ curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/evict \
   "clearedBookkeeping": ["unpinSession", "unarchiveSession"], "residual": [] }
 ```
 
-恢复返回示例（`attachedTo` 为 workspace id，挂不回去时是 `{ failed: "<原因>" }`）：
+Restore response example (`attachedTo` is the workspace id; when it cannot be reattached it is `{ failed: "<reason>" }`):
 
 ```json
 { "ok": true, "code": "restored", "sessionId": "session-xxxx",
@@ -151,25 +151,25 @@ curl -s -X POST http://127.0.0.1:53199/dsh-session-manager/evict \
   "attachedTo": "85410a3d-6c08-45a2-901f-75f72f1b5ae9", "unarchived": false }
 ```
 
-错误码：`not-found` / `trash-miss` / `destination-exists` / `trash-corrupt` / `session-busy` / `partial` / `invalid-session-id` / `invalid-trash-id` / `missing-intent-header` / `forbidden`。
+Error codes: `not-found` / `trash-miss` / `destination-exists` / `trash-corrupt` / `session-busy` / `partial` / `invalid-session-id` / `invalid-trash-id` / `missing-intent-header` / `forbidden`.
 
-## 手工作业（不用插件也能做）
+## Manual operation (works without the plugin)
 
 ```bash
-# 恢复一条：搬回原位，删掉残留 meta，然后重启 dsh（或让它重新 attach）
+# Restore one: move it back to its original location, remove the leftover meta, then restart dsh (or let it re-attach)
 mv ~/.dsh/.session-trash/2026-10-18T11-25-39-134Z__session-xxxx \
    ~/.dsh/sessions/--Users-...--/session-xxxx
 rm ~/.dsh/sessions/--Users-...--/session-xxxx/.session-manager.json
 ```
 
-## 安装 / 更新
+## Install / update
 
 ```
-# 从本地 checkout
-plugin_manager install_bundle  target=/绝对路径/Deepseek-Harness-Plugins/plugins/sessionManager
+# From a local checkout
+plugin_manager install_bundle  target=/absolute/path/to/Deepseek-Harness-Plugins/plugins/sessionManager
 
-# 直接从 GitHub（pnpm git 子目录 spec）
+# Straight from GitHub (pnpm git subdirectory spec)
 plugin_manager install_bundle  target=github:Seraph-x/Deepseek-Harness-Plugins#path:/plugins/sessionManager
 ```
 
-改完代码：Host 半边要重新加载（`plugin_manager set_plugin`，target 用加载器条目 id `include:session-manager`，先关再开）；浏览器半边刷新页面即可（`dsh-client-hmr` 通常会自动重载）。
+After changing code: the host half needs a reload (`plugin_manager set_plugin` with the loader entry id `include:session-manager` as the target, off then on); the browser half only needs a page refresh (`dsh-client-hmr` usually reloads it automatically).
