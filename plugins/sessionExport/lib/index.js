@@ -381,14 +381,40 @@ function summarize(value) {
 	return lines.join('\n');
 }
 
+/** The single-letter flags that may be bundled, as in `-pqr`. */
+const SHORT_FLAGS = new Set(['p', 't', 'q', 'r', 'a', 'f']);
+
+/**
+ * Split one word into the option tokens it spells.
+ *
+ * `-pqr` is a bundle of single-letter flags and expands. `-bare` is not: `b`
+ * and `e` are not flags, so the word is a long option someone typed with one
+ * dash, and it is repaired to `--bare` rather than silently shredded into
+ * `-b -a -r -e` — which once turned `-bare` into "every session, unsanitized".
+ *
+ * @param {string} word - one whitespace-delimited argument.
+ * @returns {string[]} the tokens to interpret.
+ */
+export function expandWord(word) {
+	if (/^-[A-Za-z]{2,}$/u.test(word)) {
+		const letters = Array.from(word.slice(1));
+		if (letters.every((ch) => SHORT_FLAGS.has(ch))) return letters.map((ch) => '-' + ch);
+		return ['--' + word.slice(1)];
+	}
+	// A hyphenated long option written with one dash: `-no-tools`, `-reasoning`.
+	if (/^-[A-Za-z][A-Za-z-]+$/u.test(word)) return ['--' + word.slice(1)];
+	return [word];
+}
+
 /** Parse the /export-session argument string into tool arguments. */
 export function parseCommandInput(raw) {
 	const args = {};
 	let path = '';
 	for (const word of String(raw).split(/\s+/u)) {
 		if (word.length === 0) continue;
-		// `-pqr` expands to `-p -q -r`; long options keep their own dashes.
-		const tokens = /^-[A-Za-z]{2,}$/u.test(word) ? Array.from(word.slice(1), (ch) => '-' + ch) : [word];
+		// The command's own name is not a path, however the row hands it over.
+		if (word === '/export-session' || word === 'export-session') continue;
+		const tokens = expandWord(word);
 		for (const token of tokens) {
 			// Whole-output presets first, so a later format flag still wins.
 			if (token === '--bare' || token === '--raw') {

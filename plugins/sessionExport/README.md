@@ -105,7 +105,10 @@ The result is `{ exports: [...], failed: [...] }`. Each export item carries
     /export-session -pq --reasoning          conversation only, reasoning kept, sanitized
     /export-session -f                       overwrite instead of appending -1
 
-Short flags combine: `-pqr` is `-p -q -r`.
+Short flags combine: `-pqr` is `-p -q -r`. Only `p t q r a f` count as short
+flags, so `-bare` is not a bundle — it is a long option someone typed with one
+dash, and it is repaired to `--bare` instead of being shredded into
+`-b -a -r -e` (which meant every session, unsanitized, tools kept).
 
 | Flag | Long form | Effect |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { fileNameFor, parseCommandInput } from '../lib/index.js';
+import { expandWord, fileNameFor, parseCommandInput } from '../lib/index.js';
 
 test('command parser defaults to no arguments', () => {
 	assert.deepEqual(parseCommandInput(''), {});
@@ -101,4 +101,30 @@ test('long options are not split into short flags', () => {
 	assert.deepEqual(parseCommandInput('--pdf'), { format: 'pdf' });
 	assert.deepEqual(parseCommandInput('--html'), { format: 'html' });
 	assert.deepEqual(parseCommandInput('--jsonl'), { format: 'jsonl' });
+});
+
+test('a long option typed with one dash is repaired, not shredded', () => {
+	const expected = { format: 'pdf', include_tool_results: false, include_tool_calls: false, include_notices: false, sanitize: false };
+	// `-bare` used to expand to `-b -a -r -e`: every session, unsanitized, tools kept.
+	assert.deepEqual(parseCommandInput('-bare'), expected);
+	assert.deepEqual(parseCommandInput('-raw'), expected);
+	assert.equal(parseCommandInput('-bare').all, undefined);
+	assert.equal(parseCommandInput('-no-tools').include_tool_results, false);
+	assert.equal(parseCommandInput('-reasoning').include_reasoning, true);
+});
+
+test('only real short flags are bundled', () => {
+	assert.deepEqual(expandWord('-pqr'), ['-p', '-q', '-r']);
+	assert.deepEqual(expandWord('-pt'), ['-p', '-t']);
+	assert.deepEqual(expandWord('-bare'), ['--bare']);
+	assert.deepEqual(expandWord('-bx'), ['--bx']);
+	assert.deepEqual(expandWord('-p'), ['-p']);
+	assert.deepEqual(expandWord('--bare'), ['--bare']);
+	assert.deepEqual(expandWord('-o=/tmp/x'), ['-o=/tmp/x']);
+	assert.deepEqual(expandWord('out.md'), ['out.md']);
+});
+
+test('the command name itself is never read as a path', () => {
+	assert.deepEqual(parseCommandInput('/export-session --bare').output_path, undefined);
+	assert.deepEqual(parseCommandInput('export-session -p'), { format: 'pdf' });
 });
