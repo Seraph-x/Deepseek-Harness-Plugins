@@ -1,13 +1,14 @@
 {
   "name": "dsh-session-export",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Export a DSH session log as a sanitized transcript in Markdown, plain text, HTML, JSONL, or PDF: host tool export_session plus the /export-session command.",
+  "description": "Export a DSH session log as a sanitized transcript in Markdown, plain text, HTML, JSONL, or PDF: host tool export_session plus the /export-session command. The result card in the Web UI copies the exported path on click and opens it in the right sidebar.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./render": "./lib/render.js",
     "./render-pdf": "./lib/render-pdf.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
@@ -15,6 +16,7 @@
   },
   "files": [
     "lib/index.js",
+    "lib/client.js",
     "lib/render.js",
     "lib/render-pdf.js",
     "cordis.patch.yml",
@@ -38,6 +40,13 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ]
     }
   }
 }

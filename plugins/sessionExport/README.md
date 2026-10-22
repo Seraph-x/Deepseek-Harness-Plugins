@@ -8,6 +8,8 @@ Two entry points, one implementation:
 
 - **tool** `export_session` — callable by the model in any session.
 - **command** `/export-session [path] [flags]` — one keystroke for the human.
+  In the Web UI its result card lists the files it wrote; click a row to copy
+  the path, press `Preview` to open it in the right sidebar.
 
 ## Formats
 
@@ -123,6 +125,31 @@ Short flags combine: `-pqr` is `-p -q -r`.
 `--bare` turns redaction off, so the PDF carries real home paths and any
 credential the session happened to contain. Keep it local.
 
+## In the Web UI
+
+The command's answer is not a paragraph. `lib/client.js` claims
+`conversation.chat.commandview` under the command name, so `/export-session`
+renders one row per file it wrote:
+
+| Interaction | What happens |
+|---|---|
+| Click a row | The absolute path goes to the clipboard; the row confirms with `已复制` / `Copied` |
+| `Preview` | Opens the file in the right sidebar through `ctx.sidebarRight.openResource` |
+| Hover | The full directory appears, since a long path is elided in place |
+
+`Preview` is the shipped document preview doing the work — PDF, Markdown, code,
+images, HTML, Office documents, and spreadsheets all render in place. The card
+only builds the address:
+
+```
+dsh-resource://file/session/<sessionId>/<absolute path>
+```
+
+That address is authorized by the session, so a file written outside the
+session workspace can still be copied but not previewed; the button reports
+that instead of failing silently. Redaction is unaffected — the card shows the
+path that was actually written, whatever the file's contents look like.
+
 ## Configuration
 
 Plugin config (a row in the profile's `cordis.patch.yml`):
@@ -193,7 +220,9 @@ command-line parser, and the file-name template.
 
 ## Notes
 
-- Host-side only: no client bundle, no routes, no UI.
+- The host half owns every disk operation. The client half
+  (`lib/client.js`) registers one slot renderer and reads only the result text
+  the host already returned: no routes, no fetches, no second implementation.
 - Reads through the `sessionPersistence` read handle after flushing the live
   session, so the transcript always includes the current turn.
 - No `@deepseek-ai/*` imports and no third-party dependencies: only Node

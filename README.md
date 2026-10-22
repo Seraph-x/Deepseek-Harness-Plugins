@@ -12,7 +12,7 @@ patch, so every plugin installs, updates, and toggles on its own.
 | Package | Form | What it does |
 | --- | --- | --- |
 | [`dsh-session-manager`](plugins/sessionManager) | Host + Web UI | Delete a session for real, with a restorable trash. Batch archive, unarchive, and delete. Decides what happens to the sessions a deleted workspace leaves behind. |
-| [`dsh-session-export`](plugins/sessionExport) | Host only | Turn a session log into Markdown, plain text, HTML, JSONL, or PDF, with home paths, user names, e-mail addresses, and credentials redacted. |
+| [`dsh-session-export`](plugins/sessionExport) | Host + Web UI | Turn a session log into Markdown, plain text, HTML, JSONL, or PDF, with home paths, user names, e-mail addresses, and credentials redacted. The result card copies the exported path on click and opens it in the right sidebar. |
 
 ### dsh-session-manager
 
@@ -53,6 +53,11 @@ adds the missing half.
 - **Zero dependencies.** Only Node builtins. The PDF writer is hand-rolled —
   Courier plus STSong-Light, no font embedding, so CJK renders through the
   reader's own fonts.
+- **The result is a place, not a paragraph.** In the Web UI the command's
+  result card lists every file it wrote: click a row to copy its path, press
+  `Preview` to open it in the right sidebar, where PDFs, Markdown, images,
+  Office files, and spreadsheets render in place. The host half still prints
+  the same text for the terminal.
 
 Two entry points: the `export_session` tool and the `/export-session` command.
 The command takes short flags that combine, so the common case is one word —
