@@ -96,6 +96,7 @@ The result is `{ exports: [...], failed: [...] }`. Each export item carries
 
 ## Command flags
 
+    /export-session --help                   every flag, on one screen
     /export-session                          markdown next to the session cwd
     /export-session --bare                   PDF of the conversation alone, unsanitized
     /export-session -pqr                     the same thing, spelled out
@@ -112,6 +113,7 @@ dash, and it is repaired to `--bare` instead of being shredded into
 
 | Flag | Long form | Effect |
 | --- | --- | --- |
+| `-h` | `--help` | print the flag list, export nothing |
 | `-p` | `--pdf` | PDF |
 | `-t` | `--txt` | plain text |
 | `-q` | `--chat` | conversation only: no tool calls, no tool results, no notices |

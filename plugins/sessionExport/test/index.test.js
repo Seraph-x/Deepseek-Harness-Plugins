@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { expandWord, fileNameFor, parseCommandInput } from '../lib/index.js';
+import { USAGE, apply, expandWord, fileNameFor, parseCommandInput } from '../lib/index.js';
 
 test('command parser defaults to no arguments', () => {
 	assert.deepEqual(parseCommandInput(''), {});
@@ -127,4 +127,33 @@ test('only real short flags are bundled', () => {
 test('the command name itself is never read as a path', () => {
 	assert.deepEqual(parseCommandInput('/export-session --bare').output_path, undefined);
 	assert.deepEqual(parseCommandInput('export-session -p'), { format: 'pdf' });
+});
+
+test('help is a flag, not an export', () => {
+	assert.deepEqual(parseCommandInput('--help'), { help: true });
+	assert.deepEqual(parseCommandInput('-h'), { help: true });
+	assert.equal(parseCommandInput('-ph').help, true);
+	assert.equal(parseCommandInput('-pqr').help, undefined);
+});
+
+test('the usage text names every flag the parser accepts', () => {
+	for (const flag of ['-p', '-t', '-q', '-r', '-a', '-f', '-h', '--pdf', '--txt', '--md', '--html', '--jsonl',
+		'--bare', '--raw', '--chat', '--no-tools', '--no-calls', '--no-notices', '--reasoning',
+		'--no-sanitize', '--overwrite', '--all', '--out=', '--dir=', '--name=']) {
+		assert.ok(USAGE.includes(flag), 'usage is missing ' + flag);
+	}
+});
+
+test('the command answers --help without touching the disk', async () => {
+	let definition;
+	const ctx = {
+		get: () => { throw new Error('a help request must not reach the session store'); },
+		tools: { register() {} },
+		commands: { register: (d) => { definition = d; } },
+	};
+	apply(ctx, {});
+	const reply = await definition.handler({ rawInput: '--help', agent: undefined, signal: undefined });
+	assert.equal(reply.kind, 'success');
+	assert.equal(reply.text, USAGE);
+	assert.equal(reply.text.includes('/export-session — export this session'), true);
 });

@@ -382,7 +382,7 @@ function summarize(value) {
 }
 
 /** The single-letter flags that may be bundled, as in `-pqr`. */
-const SHORT_FLAGS = new Set(['p', 't', 'q', 'r', 'a', 'f']);
+const SHORT_FLAGS = new Set(['p', 't', 'q', 'r', 'a', 'f', 'h']);
 
 /**
  * Split one word into the option tokens it spells.
@@ -406,6 +406,52 @@ export function expandWord(word) {
 	return [word];
 }
 
+/** The `/export-session --help` text: every flag, in the order you reach for them. */
+export const USAGE = [
+	'/export-session — export this session as a transcript',
+	'',
+	'  /export-session                     markdown, next to the session cwd',
+	'  /export-session --bare              PDF of the conversation alone, unsanitized',
+	'  /export-session -pqr                the same thing, spelled out',
+	'  /export-session -p ~/Desktop/x.pdf  PDF at an exact path',
+	'  /export-session out/session.txt     exact path, format from the extension',
+	'  /export-session -a --dir=dumps      every session in the cache',
+	'',
+	'Formats',
+	'  -p  --pdf           PDF: the plain text, typeset',
+	'  -t  --txt           plain text',
+	'      --md            Markdown (the default)',
+	'      --html          HTML',
+	'      --jsonl         JSONL',
+	'',
+	'Content',
+	'  -q  --chat          conversation only: no tool calls, no tool results, no notices',
+	'      --no-tools      drop tool results',
+	'      --no-calls      drop tool calls',
+	'      --no-notices    drop notices (abort, error, compaction, permission)',
+	'      --reasoning     keep reasoning blocks (off by default)',
+	'  -r  --no-sanitize   skip redaction',
+	'',
+	'Output',
+	'  -o= --out=          exact output path',
+	'      --dir=          directory, for --all',
+	'      --name=         file-name template: {title} {short} {id} {date} {time} {format} {ext}',
+	'  -a  --all           every session the cache knows',
+	'  -f  --overwrite     reuse the file name instead of appending -1',
+	'',
+	'Presets',
+	'      --bare          -p -q -r in one word',
+	'      --raw           same as --bare',
+	'',
+	'  -h  --help          this list',
+	'',
+	'Short flags combine: -pqr is -p -q -r. Only p t q r a f h are flags, so',
+	'-bare is read as --bare, not as -b -a -r -e.',
+	'',
+	'--bare turns redaction off: the file carries real home paths and any',
+	'credential the session happened to contain. Keep it local.',
+].join('\n');
+
 /** Parse the /export-session argument string into tool arguments. */
 export function parseCommandInput(raw) {
 	const args = {};
@@ -416,8 +462,11 @@ export function parseCommandInput(raw) {
 		if (word === '/export-session' || word === 'export-session') continue;
 		const tokens = expandWord(word);
 		for (const token of tokens) {
+			if (token === '--help' || token === '-h') {
+				args.help = true;
+			}
 			// Whole-output presets first, so a later format flag still wins.
-			if (token === '--bare' || token === '--raw') {
+			else if (token === '--bare' || token === '--raw') {
 				args.format = 'pdf';
 				args.include_tool_results = false;
 				args.include_tool_calls = false;
@@ -484,12 +533,14 @@ export function apply(ctx, config = {}) {
 	ctx.commands.register({
 		definitionId: 'dsh-session-export',
 		name: 'export-session',
-		description: 'Export this session as a transcript. --bare gives a PDF of the conversation alone, unsanitized. -p PDF, -t text, -q conversation only, -r no redaction, -a every session, -f overwrite.',
-		input: { hint: '[path] [--bare] [-p|-t] [-q] [-r] [-a] [-f] [--md|--html|--jsonl] [--reasoning] [--name=template] [--dir=path] [-o=path]' },
+		description: 'Export this session as a transcript. --help lists every flag. --bare gives a PDF of the conversation alone, unsanitized. -p PDF, -t text, -q conversation only, -r no redaction, -a every session, -f overwrite.',
+		input: { hint: '[path] [--help] [--bare] [-p|-t] [-q] [-r] [-a] [-f] [--md|--html|--jsonl] [--reasoning] [--name=template] [--dir=path] [-o=path]' },
 		async handler(invocation) {
 			const raw = typeof invocation.rawInput === 'string' ? invocation.rawInput.trim() : '';
+			const parsed = parseCommandInput(raw);
+			if (parsed.help === true) return { kind: 'success', text: USAGE };
 			try {
-				const value = await exportSessions(ctx, config, parseCommandInput(raw), {
+				const value = await exportSessions(ctx, config, parsed, {
 					agent: invocation.agent,
 					signal: invocation.signal
 				});
